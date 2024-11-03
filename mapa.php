@@ -1,10 +1,9 @@
 <?php
 /*
-Plugin Name: Mapa de Concursos Alagoas
-Description: Exibe mapas com concursos públicos em Alagoas, categorizados e próximos do usuário.
+Plugin Name: Mapa de Concursos 
+Description: Exibe mapas com concursos públicos, categorizados e próximos do usuário.
 Version: 1.0
-Author: Seu Nome
-License: GPL2
+Author: John Amorim
 */
 
 if (!defined('ABSPATH')) {
