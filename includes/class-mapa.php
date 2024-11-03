@@ -1,15 +1,20 @@
 <?php
 class Map_Helper {
-    public static function get_concursos_by_category($categoria) {
+    public static function get_concursos_by_category($categoria = '') {
         $args = [
             'post_type' => 'product',
-            'meta_key' => '_concurso_categoria',
-            'meta_value' => $categoria
+            'meta_key' => '_concurso_categoria'
         ];
+        
+        // Condicional para quando não houver categoria
+        if (!empty($categoria)) {
+            $args['meta_value'] = $categoria;
+        }
+
         return new WP_Query($args);
     }
 
-    public static function render_mapa_concursos($categoria) {
+    public static function render_mapa_concursos($categoria = '') {
         $concursos = self::get_concursos_by_category($categoria);
         
         echo '<div id="mapa_' . esc_attr($categoria) . '" style="width: 100%; height: 400px;"></div>';
