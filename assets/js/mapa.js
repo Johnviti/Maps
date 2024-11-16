@@ -16,10 +16,10 @@ const userIconUrl = "<?php echo esc_js(get_option('user_icon_url', 'URL_DO_ICONE
 
 const mapaIcon = L.icon({
     iconUrl: mapaIconUrl,
-    iconSize: [32, 32], // ajuste o tamanho do ícone conforme necessário
+    iconSize: [32, 32], 
 });
 
 const userIcon = L.icon({
     iconUrl: userIconUrl,
-    iconSize: [32, 32], // ajuste o tamanho do ícone conforme necessário
+    iconSize: [32, 32], 
 });

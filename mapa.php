@@ -19,12 +19,12 @@ require_once PLUGIN_PATH . 'includes/class-mapa.php';
 
 function mapa_concursos_add_admin_page() {
     add_menu_page(
-        'Mapa de Concursos',
+        'Configurações do Mapa de Concursos',
         'Mapa de Concursos',
         'manage_options',
         'mapa_concursos_settings',
         'mapa_concursos_render_settings_page',
-        'dashicons-location', 
+        'dashicons-location',
         110
     );
 }
@@ -92,6 +92,28 @@ function mapa_concursos_register_settings() {
 }
 add_action('admin_init', 'mapa_concursos_register_settings');
 
+function mapa_concursos_enqueue_media_uploader() {
+    if (isset($_GET['page']) && $_GET['page'] === 'mapa_concursos_settings') {
+        // Carrega o Media Uploader do WordPress
+        wp_enqueue_media();
+        
+        // Verifica se o arquivo custom-script.js existe antes de tentar carregá-lo
+        $script_path = PLUGIN_PATH . 'custom-script.js';
+        if (file_exists($script_path)) {
+            wp_enqueue_script(
+                'mapa_concursos_custom_script',
+                PLUGIN_URL . 'custom-script.js',
+                ['jquery'],
+                null,
+                true
+            );
+        } else {
+            error_log('O arquivo custom-script.js não foi encontrado no diretório do plugin.');
+        }
+    }
+}
+add_action('admin_enqueue_scripts', 'mapa_concursos_enqueue_media_uploader');
+
 function mapa_concursos_icon_field_callback($args) {
     $option = get_option($args['label_for']);
     ?>
@@ -100,6 +122,8 @@ function mapa_concursos_icon_field_callback($args) {
     <p class="description">URL do ícone. Deixe em branco para usar o ícone padrão.</p>
     <?php
 }
+
+// ======= Finalização do Menu do Plugin =======
 
 add_action('woocommerce_product_options_general_product_data', 'add_concurso_coordinates_fields');
 function add_concurso_coordinates_fields() {
@@ -141,9 +165,32 @@ function mapa_concursos_page() {
 
 
 function shortcode_mapa_concursos($atts) {
-    $atts = shortcode_atts(['categoria' => ''], $atts, 'mapa_concursos');
+    // Define os atributos padrão
+    $atts = shortcode_atts(
+        [
+            'tag' => '',             
+            'mais_procurados' => 'false' 
+        ],
+        $atts,
+        'mapa_concursos'
+    );
+
+    $mais_procurados = filter_var($atts['mais_procurados'], FILTER_VALIDATE_BOOLEAN);
+
     ob_start();
-    Map_Helper::render_mapa_concursos($atts['categoria']);
+    
+    Map_Helper::render_mapa_concursos($atts['tag'], $mais_procurados);
+
     return ob_get_clean();
 }
 add_shortcode('mapa_concursos', 'shortcode_mapa_concursos');
+
+
+
+
+function mapa_concursos_settings_link($links) {
+    $settings_link = '<a href="' . admin_url('admin.php?page=mapa_concursos_settings') . '">Configurações</a>';
+    array_unshift($links, $settings_link);
+    return $links;
+}
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'mapa_concursos_settings_link');
