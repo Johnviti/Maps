@@ -17,20 +17,21 @@ define('PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once PLUGIN_PATH . 'includes/enqueue-scripts.php';
 require_once PLUGIN_PATH . 'includes/class-mapa.php';
 
-function mapa_concursos_add_admin_page() {
+function mapa_concursos_menu() {
     add_menu_page(
         'Configurações do Mapa de Concursos',
         'Mapa de Concursos',
         'manage_options',
         'mapa_concursos_settings',
-        'mapa_concursos_render_settings_page',
+        'mapa_concursos_page',
         'dashicons-location',
-        110
+        30
     );
 }
-add_action('admin_menu', 'mapa_concursos_add_admin_page');
+add_action('admin_menu', 'mapa_concursos_menu');
 
-function mapa_concursos_render_settings_page() {
+
+function mapa_concursos_page() {
     ?>
     <div class="wrap">
         <h1>Configurações do Mapa de Concursos</h1>
@@ -65,6 +66,46 @@ function mapa_concursos_register_settings() {
     register_setting('mapa_concursos_settings', 'mapa_icon_url');
     register_setting('mapa_concursos_settings', 'user_icon_url');
 
+    register_setting('mapa_concursos_settings', 'mapa_tag');
+    register_setting('mapa_concursos_settings', 'mapa_mais_procurados');
+
+    add_settings_section(
+        'mapa_concursos_section',
+        'Configurações do Mapa de Concursos',
+        null,
+        'mapa_concursos_settings'
+    );
+
+    // Campo para a tag
+    add_settings_field(
+        'mapa_tag',
+        'Tag do Concurso',
+        'mapa_concursos_tag_field_callback',
+        'mapa_concursos_settings',
+        'mapa_concursos_section',
+        ['label_for' => 'mapa_tag']
+    );
+
+    // Campo para "Mais Procurados"
+    add_settings_field(
+        'mapa_mais_procurados',
+        'Exibir Mais Procurados',
+        'mapa_concursos_mais_procurados_field_callback',
+        'mapa_concursos_settings',
+        'mapa_concursos_section',
+        ['label_for' => 'mapa_mais_procurados']
+    );
+
+    // Campo para copiar o shortcode
+    add_settings_field(
+        'mapa_shortcode',
+        'Shortcode Gerado',
+        'mapa_concursos_shortcode_field_callback',
+        'mapa_concursos_settings',
+        'mapa_concursos_section'
+    );
+
+   
     add_settings_section(
         'mapa_concursos_section',
         'Ícones do Mapa',
@@ -94,10 +135,8 @@ add_action('admin_init', 'mapa_concursos_register_settings');
 
 function mapa_concursos_enqueue_media_uploader() {
     if (isset($_GET['page']) && $_GET['page'] === 'mapa_concursos_settings') {
-        // Carrega o Media Uploader do WordPress
         wp_enqueue_media();
         
-        // Verifica se o arquivo custom-script.js existe antes de tentar carregá-lo
         $script_path = PLUGIN_PATH . 'custom-script.js';
         if (file_exists($script_path)) {
             wp_enqueue_script(
@@ -121,6 +160,39 @@ function mapa_concursos_icon_field_callback($args) {
     <input type="button" class="button" value="Upload Ícone" onclick="uploadIcon('<?php echo esc_attr($args['label_for']); ?>')" />
     <p class="description">URL do ícone. Deixe em branco para usar o ícone padrão.</p>
     <?php
+}
+
+function mapa_concursos_tag_field_callback($args) {
+    $option = get_option($args['label_for']);
+    echo '<input type="text" id="mapa_tag" name="mapa_tag" value="' . esc_attr($option) . '" />';
+    echo '<p class="description">Digite a tag do concurso (ex: previstos, abertos, autorizados). Deixe em branco para exibir todos os concursos.</p>';
+}
+
+// Função para o campo de "Mais Procurados"
+function mapa_concursos_mais_procurados_field_callback($args) {
+    $option = get_option($args['label_for']);
+    echo '<input type="checkbox" id="mapa_mais_procurados" name="mapa_mais_procurados" value="1" ' . checked(1, $option, false) . ' />';
+    echo '<p class="description">Selecione para exibir os concursos mais procurados.</p>';
+}
+
+// Função para exibir o shortcode gerado
+function mapa_concursos_shortcode_field_callback() {
+    $tag = get_option('mapa_tag');
+    $mais_procurados = get_option('mapa_mais_procurados');
+    $shortcode = '[mapa_concursos';
+
+    if (!empty($tag)) {
+        $shortcode .= ' categoria="' . esc_attr($tag) . '"';
+    }
+    
+    if ($mais_procurados) {
+        $shortcode .= ' mais_procurados="true"';
+    }
+    
+    $shortcode .= ']';
+
+    echo '<input type="text" readonly="readonly" value="' . esc_attr($shortcode) . '" id="mapa_shortcode_field" class="regular-text" />';
+    echo '<p class="description">Copie o shortcode acima e cole onde deseja exibir o mapa de concursos.</p>';
 }
 
 // ======= Finalização do Menu do Plugin =======
@@ -156,12 +228,12 @@ function save_concurso_coordinates_fields($post_id) {
 }
 
 // Função da página
-function mapa_concursos_page() {
-    echo '<h1>Configurações do Mapa de Concursos</h1>';
-    echo '<p>Configure os mapas e informações dos concursos próximos ao usuário.</p>';
+// function mapa_concursos_page() {
+//     echo '<h1>Configurações do Mapa de Concursos</h1>';
+//     echo '<p>Configure os mapas e informações dos concursos próximos ao usuário.</p>';
 
-    the_content();
-}
+//     the_content();
+// }
 
 
 function shortcode_mapa_concursos($atts) {
