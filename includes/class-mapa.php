@@ -73,10 +73,27 @@ class Map_Helper {
             $latitude = get_post_meta(get_the_ID(), '_concurso_latitude', true);
             $longitude = get_post_meta(get_the_ID(), '_concurso_longitude', true);
     
+            $titulo_edital = get_field('titulo_edital'); 
+            $texto_edital = get_field('texto_edital');
+            $nivel = get_field('nivel');
+            $vagas = get_field('vagas');
+            $inscricoes = get_field('inscricoes');
+    
+            $link = get_permalink();
+    
             if ($latitude && $longitude) {
                 echo '
                     var productMarker = L.marker([' . esc_js($latitude) . ', ' . esc_js($longitude) . '], { icon: concursoIcon }).addTo(map)
-                        .bindPopup("<b>' . esc_js(get_the_title()) . '</b>");
+                        .bindPopup(`
+                            <div>
+                                <h3>' . esc_js(get_the_title()) . '</h3>
+                                <p><strong>Edital:</strong> ' . esc_js($texto_edital) . '</p>
+                                <p><strong>Nível:</strong> ' . esc_js($nivel) . '</p>
+                                <p><strong>Vagas:</strong> ' . esc_js($vagas) . '</p>
+                                <p><strong>Inscrições:</strong> ' . esc_js($inscricoes) . '</p>
+                                <a href="' . esc_js($link) . '" class="btn btn-primary" target="_blank">Ver mais</a>
+                            </div>
+                        `);
                     bounds.extend(productMarker.getLatLng());
                     hasProducts = true;
                 ';
@@ -84,24 +101,48 @@ class Map_Helper {
         }
     
         echo '
-            // Tenta obter a localização do usuário e ajustar o mapa
             navigator.geolocation.getCurrentPosition(function(position) {
                 var userLat = position.coords.latitude;
                 var userLng = position.coords.longitude;
     
                 var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map);
     
-                // Centraliza no usuário e ajusta os limites
                 bounds.extend(userMarker.getLatLng());
+
+                // Configuração do raio inicial e máximo
+                var radius = 5000; // 5km de início
+                var maxRadius = 2000000; // 2000km
+                var incrementStep = 50000; // Aumenta em 50km inicialmente
+
+                function adjustZoomToRadius(radius) {
+                    map.setView(userMarker.getLatLng(), map.getBoundsZoom(bounds));
+
+                    // Verifica se os produtos estão visíveis no raio atual
+                    var productsInView = bounds.contains(userMarker.getLatLng());
+
+                    // Ajusta o raio se nenhum produto estiver visível
+                    if (!productsInView && radius <= maxRadius) {
+                        if (radius < 500000) {
+                            // Incrementos maiores se o raio for menor que 500km
+                            incrementStep = 100000; // Aumenta em 100km
+                        } else {
+                            // Incrementos menores se o raio for maior que 500km
+                            incrementStep = 250000; // Aumenta em 250km
+                        }
+
+                        radius += incrementStep;
+                        adjustZoomToRadius(radius);
+                    }
+                }
+
                 if (hasProducts) {
-                    map.fitBounds(bounds); // Ajusta para incluir o usuário e os produtos
+                    adjustZoomToRadius(radius);
                 } else {
-                    map.setView(userMarker.getLatLng(), 12); // Centraliza no usuário, se não houver produtos
+                    map.setView(userMarker.getLatLng(), 12); // Centraliza no usuário se não houver produtos
                 }
             }, function(error) {
                 console.log("Erro ao obter a localização do usuário:", error.message);
                 
-                // Fallback: centraliza nos produtos, se houver
                 if (hasProducts) {
                     map.fitBounds(bounds);
                 } else {
@@ -111,7 +152,7 @@ class Map_Helper {
         ';
         echo '</script>';
     }
-    
+      
 }
 
 
