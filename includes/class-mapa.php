@@ -2,12 +2,12 @@
 class Map_Helper {
     public static function get_concurso_icon_url() {
         $icon_url = get_option('mapa_icon_url');
-        return $icon_url ? esc_url($icon_url) : PLUGIN_URL . 'assets/images/concurso-icon.png'; // Ícone padrão
+        return $icon_url ? esc_url($icon_url) : PLUGIN_URL . 'assets/images/concurso-icon.png';
     }
 
     public static function get_user_icon_url() {
         $icon_url = get_option('user_icon_url');
-        return $icon_url ? esc_url($icon_url) : PLUGIN_URL . 'assets/images/user-icon.png'; // Ícone padrão
+        return $icon_url ? esc_url($icon_url) : PLUGIN_URL . 'assets/images/user-icon.png';
     }
     
     public static function get_concursos_by_filter($tag = '', $mais_procurados = false) {
@@ -19,17 +19,17 @@ class Map_Helper {
         if (!empty($tag)) {
             $args['tax_query'] = [
                 [
-                    'taxonomy' => 'product_tag', // Taxonomia para tags de produtos
-                    'field' => 'slug',          // Comparação pelo slug da tag
+                    'taxonomy' => 'product_tag', 
+                    'field' => 'slug',          
                     'terms' => $tag,
                 ],
             ];
         }
 
         if ($mais_procurados) {
-            $args['meta_key'] = 'total_views'; // Chave meta que armazena as visualizações
-            $args['orderby'] = 'meta_value_num'; // Ordena pelo valor numérico da meta
-            $args['order'] = 'DESC'; // Mais procurados primeiro
+            $args['meta_key'] = 'total_views'; 
+            $args['orderby'] = 'meta_value_num'; 
+            $args['order'] = 'DESC';
         }
 
         return new WP_Query($args);
@@ -75,9 +75,13 @@ class Map_Helper {
     
             $titulo_edital = get_field('titulo_edital'); 
             $texto_edital = get_field('texto_edital');
-            $nivel = get_field('nivel');
-            $vagas = get_field('vagas');
-            $inscricoes = get_field('inscricoes');
+            $nivel_meta = get_field('nivel');
+            $nivel = $nivel_meta ? $nivel_meta['texto_edital'] : '';
+            $vagas_meta = get_field('vagas');
+            $vagas = $vagas_meta ? $vagas_meta['texto_edital'] : '';
+            $inscricoes_meta = get_field('inscricoes');
+            $inscricoes = $inscricoes_meta ? $inscricoes_meta['texto_edital'] : '';
+
     
             $link = get_permalink();
     
@@ -112,22 +116,25 @@ class Map_Helper {
                 // Configuração do raio inicial e máximo
                 var radius = 5000; // 5km de início
                 var maxRadius = 2000000; // 2000km
-                var incrementStep = 50000; // Aumenta em 50km inicialmente
+                var incrementStep = 10000; // Aumenta em 10km inicialmente
 
                 function adjustZoomToRadius(radius) {
                     map.setView(userMarker.getLatLng(), map.getBoundsZoom(bounds));
 
-                    // Verifica se os produtos estão visíveis no raio atual
+                    // Verifica se há produtos visíveis no raio atual
                     var productsInView = bounds.contains(userMarker.getLatLng());
+
+                    // Se ao menos um produto estiver visível, mantemos o zoom atual
+                    if (productsInView && hasProducts) {
+                        return;
+                    }
 
                     // Ajusta o raio se nenhum produto estiver visível
                     if (!productsInView && radius <= maxRadius) {
                         if (radius < 500000) {
-                            // Incrementos maiores se o raio for menor que 500km
-                            incrementStep = 100000; // Aumenta em 100km
+                            incrementStep = 50000; // Aumenta em 50km se o raio for menor que 500km
                         } else {
-                            // Incrementos menores se o raio for maior que 500km
-                            incrementStep = 250000; // Aumenta em 250km
+                            incrementStep = 250000; // Aumenta em 250km se o raio for maior que 500km
                         }
 
                         radius += incrementStep;
