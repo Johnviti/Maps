@@ -237,10 +237,9 @@ function save_concurso_coordinates_fields($post_id) {
 
 
 function shortcode_mapa_concursos($atts) {
-    // Define os atributos padrão
     $atts = shortcode_atts(
         [
-            'tag' => '',             
+            'tag' => '',              
             'mais_procurados' => 'false' 
         ],
         $atts,
@@ -249,13 +248,10 @@ function shortcode_mapa_concursos($atts) {
 
     $mais_procurados = filter_var($atts['mais_procurados'], FILTER_VALIDATE_BOOLEAN);
 
-    ob_start();
-    
-    Map_Helper::render_mapa_concursos($atts['tag'], $mais_procurados);
-
-    return ob_get_clean();
+    return Map_Helper::render_map($atts['tag'], $mais_procurados);
 }
 add_shortcode('mapa_concursos', 'shortcode_mapa_concursos');
+
 
 
 
