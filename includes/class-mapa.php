@@ -43,8 +43,12 @@ class Map_Helper {
         $user_icon_url = self::get_user_icon_url();
     
         echo '<div id="' . esc_attr($map_id) . '" style="width: 100%; height: 400px;"></div>';
-        echo '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+        
+        if (!wp_script_is('leaflet-js', 'enqueued')) {
+            echo '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>';
+        }
+        
         echo '<script>
             var map = L.map("' . esc_attr($map_id) . '");
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
@@ -106,56 +110,86 @@ class Map_Helper {
     
         echo '
             navigator.geolocation.getCurrentPosition(function(position) {
-                var userLat = position.coords.latitude;
-                var userLng = position.coords.longitude;
-    
-                var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map);
-    
-                bounds.extend(userMarker.getLatLng());
+        var userLat = position.coords.latitude;
+        var userLng = position.coords.longitude;
 
-                // Configuração do raio inicial e máximo
-                var radius = 5000; // 5km de início
-                var maxRadius = 2000000; // 2000km
-                var incrementStep = 10000; // Aumenta em 10km inicialmente
+        var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map);
 
-                function adjustZoomToRadius(radius) {
-                    map.setView(userMarker.getLatLng(), map.getBoundsZoom(bounds));
+        map.setView(userMarker.getLatLng(), 12);
+        userMarker.addTo(map);
 
-                    // Verifica se há produtos visíveis no raio atual
-                    var productsInView = bounds.contains(userMarker.getLatLng());
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            var R = 6371e3; // Raio da Terra em metros
+            var φ1 = lat1 * Math.PI/180;
+            var φ2 = lat2 * Math.PI/180;
+            var Δφ = (lat2-lat1) * Math.PI/180;
+            var Δλ = (lon2-lon1) * Math.PI/180;
 
-                    // Se ao menos um produto estiver visível, mantemos o zoom atual
-                    if (productsInView && hasProducts) {
-                        return;
+            var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // Distância em metros
+        }
+
+        var radius = 5000; // Raio inicial de busca
+        var maxRadius = 2000000; 
+        var incrementStep = 10000; 
+
+        var nearestProductMarker = null;
+
+        function findNearestProduct() {
+            var nearestDistance = Infinity;
+
+            // Busca pelo primeiro produto dentro do raio
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.Marker && layer !== userMarker) {
+                    var productLatLng = layer.getLatLng();
+                    var distance = calculateDistance(userLat, userLng, productLatLng.lat, productLatLng.lng);
+                    
+                    if (distance <= radius && distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestProductMarker = layer;
                     }
-
-                    // Ajusta o raio se nenhum produto estiver visível
-                    if (!productsInView && radius <= maxRadius) {
-                        if (radius < 500000) {
-                            incrementStep = 50000; // Aumenta em 50km se o raio for menor que 500km
-                        } else {
-                            incrementStep = 250000; // Aumenta em 250km se o raio for maior que 500km
-                        }
-
-                        radius += incrementStep;
-                        adjustZoomToRadius(radius);
-                    }
-                }
-
-                if (hasProducts) {
-                    adjustZoomToRadius(radius);
-                } else {
-                    map.setView(userMarker.getLatLng(), 12); // Centraliza no usuário se não houver produtos
-                }
-            }, function(error) {
-                console.log("Erro ao obter a localização do usuário:", error.message);
-                
-                if (hasProducts) {
-                    map.fitBounds(bounds);
-                } else {
-                    map.setView([-9.6658, -35.735], 8); // Posição padrão
                 }
             });
+        }
+
+        function adjustZoomToNearestProduct() {
+            findNearestProduct();
+
+            if (nearestProductMarker) {
+                // Ajusta o mapa para exibir apenas o produto encontrado e o usuário
+                map.setView(nearestProductMarker.getLatLng(), 12); // Define o zoom inicial
+                map.fitBounds(L.latLngBounds([userMarker.getLatLng(), nearestProductMarker.getLatLng()]));
+            } else if (radius <= maxRadius) {
+                // Aumenta o raio se não encontrar nenhum produto visível
+                if (radius < 500000) {
+                    incrementStep = 50000; // Aumenta em 50km se o raio for menor que 500km
+                } else {
+                    incrementStep = 250000; // Aumenta em 250km se o raio for maior que 500km
+                }
+
+                radius += incrementStep;
+                adjustZoomToNearestProduct(); // Tenta novamente com um raio maior
+            }
+        }
+
+        if (hasProducts) {
+            adjustZoomToNearestProduct();
+        } else {
+            map.setView(userMarker.getLatLng(), 12); // Centraliza no usuário se não houver produtos
+        }
+    }, function(error) {
+        console.log("Erro ao obter a localização do usuário:", error.message);
+        
+        if (hasProducts) {
+            map.fitBounds(bounds);
+        } else {
+            map.setView([-9.6658, -35.735], 8); // Posição padrão
+        }
+    });
         ';
         echo '</script>';
     }
