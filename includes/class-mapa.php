@@ -52,6 +52,105 @@ class Map_Helper {
         <script>
             document.addEventListener('DOMContentLoaded', function() {
             var map = L.map("<?php echo esc_js($map_id); ?>");
+
+            function resizeMap() {
+                var currentCenter = map.getCenter();
+                var currentZoom = map.getZoom();    
+                map.invalidateSize();
+                map.setView(currentCenter, currentZoom);
+
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var userLat = position.coords.latitude;
+                    var userLng = position.coords.longitude;
+
+                    var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map);
+
+                    map.setView(userMarker.getLatLng(), 12);
+                    userMarker.addTo(map);
+
+                    function calculateDistance(lat1, lon1, lat2, lon2) {
+                        var R = 6371e3;
+                        var φ1 = lat1 * Math.PI / 180;
+                        var φ2 = lat2 * Math.PI / 180;
+                        var Δφ = (lat2 - lat1) * Math.PI / 180;
+                        var Δλ = (lon2 - lon1) * Math.PI / 180;
+
+                        var a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                            Math.cos(φ1) * Math.cos(φ2) *
+                            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                        return R * c;
+                    }
+
+                    var radius = 5000;
+                    var maxRadius = 2000000;
+                    var incrementStep = 10000;
+
+                    var nearestProductMarker = null;
+
+                    function findNearestProduct() {
+                        var nearestDistance = Infinity;
+
+                        map.eachLayer(function(layer) {
+                            if (layer instanceof L.Marker && layer !== userMarker) {
+                                var productLatLng = layer.getLatLng();
+                                var distance = calculateDistance(userLat, userLng, productLatLng.lat, productLatLng.lng);
+
+                                if (distance <= radius && distance < nearestDistance) {
+                                    nearestDistance = distance;
+                                    nearestProductMarker = layer;
+                                }
+                            }
+                        });
+                    }
+
+                    function adjustZoomToNearestProduct() {
+                        findNearestProduct();
+
+                        if (nearestProductMarker) {
+                            map.setView(nearestProductMarker.getLatLng(), 12);
+                            map.fitBounds(L.latLngBounds([userMarker.getLatLng(), nearestProductMarker.getLatLng()]));
+                        } else if (radius <= maxRadius) {
+                            if (radius < 500000) {
+                                incrementStep = 50000;
+                            } else {
+                                incrementStep = 250000;
+                            }
+
+                            radius += incrementStep;
+                            adjustZoomToNearestProduct();
+                        }
+                    }
+
+                    if (hasProducts) {
+                        adjustZoomToNearestProduct();
+                    } else {
+                        map.setView(userMarker.getLatLng(), 12);
+                    }
+                }, function(error) {
+                    console.log("Erro ao obter a localização do usuário:", error.message);
+
+                    if (hasProducts) {
+                        map.fitBounds(bounds);
+                    } else {
+                        map.setView([-9.6658, -35.735], 8);
+                    }
+                })
+            };
+
+            var container = document.getElementById("<?php echo esc_js($map_id); ?>").parentElement;
+
+            if (container && container.offsetWidth === 0) {
+                var interval = setInterval(function() {
+                    if (container.offsetWidth > 0) {
+                        resizeMap(); 
+                        clearInterval(interval);
+                    }
+                }, 100);
+            } 
+
+
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
             var concursoIcon = L.icon({
